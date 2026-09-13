@@ -6,7 +6,9 @@
     const SET_ID = "kncraft-wither-storms";
     const scriptUrl = document.currentScript?.src || new URL("witherstorm-bluemap/storms.js", document.baseURI);
     const feedUrl = new URL("live.json", scriptUrl);
-    const iconUrl = new URL("storm.png", scriptUrl).href;
+    const icon = new URL("storm.png", scriptUrl);
+    icon.search = new URL(scriptUrl).search;
+    const iconUrl = icon.href;
     let lastStamp = null;
     let lastChange = performance.now();
     let failed = false;

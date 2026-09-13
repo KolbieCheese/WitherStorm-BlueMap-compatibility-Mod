@@ -87,7 +87,7 @@ test('native marker instances animate two storms and safely display names', asyn
     assert.equal(first.position.y, 80);
     assert.equal(first.playerNameElement.textContent, name);
     assert.equal(first.playerNameElement.querySelector('img'), null);
-    assert.equal(first.playerHeadElement.src, 'https://map.example/subpath/witherstorm-bluemap/storm.png');
+    assert.equal(first.playerHeadElement.src, 'https://map.example/subpath/witherstorm-bluemap/storm.png?v=1.0.0');
     assert.equal(first.data.type, 'witherstorm');
     assert.equal(h.requested.options.cache, 'no-store');
     h.setData({schema: 1, generatedAt: 3, maps: {overworld: [storm(id1, 110), storm(id2, -100)]}});

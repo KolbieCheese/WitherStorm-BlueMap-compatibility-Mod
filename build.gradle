@@ -4,8 +4,12 @@ plugins {
 }
 
 group = 'net.kncraft'
-version = '1.0.0'
-base.archivesName = 'witherstorm-bluemap-1.20.1'
+// GitHub Releases supplies this property; local builds use the first release version.
+version = providers.gradleProperty('modVersion').getOrElse('1.0')
+if (!(version ==~ /1\.(0|[1-9][0-9]*)/)) {
+    throw new GradleException('modVersion must be a sequential version such as 1.0, 1.1, or 1.10')
+}
+base.archivesName = 'WitherStormBlueMap'
 java.toolchain.languageVersion = JavaLanguageVersion.of(17)
 
 minecraft {
@@ -35,11 +39,15 @@ dependencies {
 tasks.named('processResources') {
     inputs.property 'version', project.version
     filesMatching('META-INF/mods.toml') { expand version: project.version }
+    filesMatching('witherstormbluemap-version.properties') { expand version: project.version }
 }
 tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
 tasks.withType(AbstractArchiveTask).configureEach {
     preserveFileTimestamps = false
     reproducibleFileOrder = true
 }
-tasks.named('jar') { finalizedBy 'reobfJar' }
+tasks.named('jar') {
+    archiveFileName = "WitherStormBlueMap${project.version}.jar"
+    finalizedBy 'reobfJar'
+}
 tasks.named('test') { useJUnitPlatform() }

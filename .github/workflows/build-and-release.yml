@@ -1,0 +1,114 @@
+name: Build and release
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Build and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+        with:
+          cache-provider: basic
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run test:release
+      - name: Get BlueMap 5.3 web test sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: BlueMap-Minecraft/BlueMap
+          ref: eed8f79e68b053c119f88bbf358bed893a78d110
+          path: .dev/BlueMap
+          persist-credentials: false
+      - run: npm test
+      - name: Get BlueMap 5.12 web test sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: BlueMap-Minecraft/BlueMap
+          ref: 08e48b21904a439cd394ace422fe8c5a6c21e6f4
+          path: .dev/BlueMap-5.12
+          persist-credentials: false
+      - run: npm test
+        env:
+          BLUEMAP_SOURCE: .dev/BlueMap-5.12
+      - name: Build and run Java tests
+        run: bash ./gradlew --no-daemon build
+      - name: Keep test reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: test-reports-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build/reports/tests/
+          if-no-files-found: ignore
+
+  release:
+    name: Publish next version
+    needs: verify
+    if: >-
+      github.event_name != 'pull_request' &&
+      github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    concurrency:
+      group: witherstorm-bluemap-releases
+      queue: max
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Select next release version
+        id: version
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const release = require('./.github/scripts/release.cjs');
+            const plan = await release.planRelease(github, context);
+            core.setOutput('version', plan.version);
+            core.setOutput('skip', String(plan.skip));
+            core.info(plan.skip ? `Already published ${plan.tag}` : `Building ${plan.filename}`);
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        if: steps.version.outputs.skip != 'true'
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+        if: steps.version.outputs.skip != 'true'
+        with:
+          cache-provider: basic
+      - name: Package the tested commit with its release version
+        if: steps.version.outputs.skip != 'true'
+        env:
+          MOD_VERSION: ${{ steps.version.outputs.version }}
+        run: bash ./gradlew --no-daemon assemble "-PmodVersion=$MOD_VERSION"
+      - name: Publish JAR to GitHub Releases
+        if: steps.version.outputs.skip != 'true'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          MOD_VERSION: ${{ steps.version.outputs.version }}
+        with:
+          script: |
+            const release = require('./.github/scripts/release.cjs');
+            const published = await release.publishRelease(github, context, process.env.MOD_VERSION);
+            await core.summary.addHeading(published.name)
+              .addLink('Download the release', published.html_url).write();

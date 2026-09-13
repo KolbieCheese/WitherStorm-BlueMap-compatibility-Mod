@@ -24,7 +24,7 @@ BlueMap was **not installed** in the inspected KNCraft client instance. Choose t
 ## Install
 
 1. Stop the side-server.
-2. Put `build/libs/witherstorm-bluemap-1.20.1-1.0.0.jar` in its `mods` folder, alongside the compatible Forge BlueMap JAR and `witherstormmod-1.20.1-4.2.1-all.jar`.
+2. Download `WitherStormBlueMap<version>.jar` from this repository's GitHub **Releases**, or use `build/libs/WitherStormBlueMap1.0.jar` from a local build. Put it in the server's `mods` folder alongside the compatible Forge BlueMap JAR and `witherstormmod-1.20.1-4.2.1-all.jar`. When updating, replace the old integration JAR so only one version is installed.
 3. Start the server and complete [BlueMap's normal setup](https://bluemap.bluecolored.de/wiki/getting-started/Installation.html). BlueMap must be enabled and have a map configured for the storm's dimension.
 4. Open BlueMap and refresh the browser once so it loads the installed extension. Enable **Wither Storms** in the map's marker menu if hidden.
 5. Run `/witherstormbluemap status` as an operator, or `witherstormbluemap status` in the server console. It reports BlueMap readiness, loaded storms/segments, sampling interval, and update failures.
@@ -64,6 +64,28 @@ $env:JAVA_HOME = 'C:\path\to\jdk-17'
 ```
 
 The Gradle wrapper downloads dependencies and produces the reobfuscated server JAR in `build/libs`. Wither Storm and BlueMap themselves are not bundled. Entity matching uses the verified registry IDs `witherstormmod:wither_storm` and `witherstormmod:wither_storm_segment`, avoiding a dependency on the storm mod's internal Java classes.
+
+Local builds default to `WitherStormBlueMap1.0.jar`. To build a specific sequential version, use `./gradlew build -PmodVersion=1.10` (or `.\gradlew.bat` on Windows). This sets the filename, Forge mod metadata, and web asset cache version together.
+
+## Automatic GitHub releases
+
+The [Build and release workflow](.github/workflows/build-and-release.yml) runs on branch pushes, pull requests, and manual dispatches. It runs the Java tests, both BlueMap web compatibility suites, and the release-script tests. A successful build on the repository's default branch (**currently `main`**) then publishes a GitHub Release automatically. Other branches and pull requests only build and test.
+
+Release names, tags, and files are generated together:
+
+| Publication | Release name | Git tag | Download |
+| --- | --- | --- | --- |
+| First | `WitherStormBlueMap1.0` | `v1.0` | `WitherStormBlueMap1.0.jar` |
+| Next | `WitherStormBlueMap1.1` | `v1.1` | `WitherStormBlueMap1.1.jar` |
+| After `1.9` | `WitherStormBlueMap1.10` | `v1.10` | `WitherStormBlueMap1.10.jar` |
+
+The counter uses published GitHub Releases rather than workflow run numbers. It starts at `1.0` when there are no matching published releases. Published releases tagged `v1.x` / `1.x` and legacy `v1.x.0` releases are recognized. Failed builds do not consume a version. Versions increase in publication order; queued jobs run one at a time. Re-running a commit that this workflow already published skips creating a duplicate. Keep the published release history to preserve the counter.
+
+Publishing first creates a draft, uploads the correctly named JAR, and only then makes it public. If an upload fails, **re-run that failed release job** to finish the same draft/version. A draft belonging to another commit or a conflicting existing tag stops publication with an explanation rather than overwriting it. GitHub queues up to 100 pending release jobs using its [documented `queue: max` setting](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency).
+
+No personal access token or version file edits are required. The release job requests `contents: write` using the repository's built-in `GITHUB_TOKEN`; test jobs only receive read permission. GitHub Actions must be enabled and repository/organization rules must allow the workflow to create release tags. Once these files are pushed to `main`, the first run will build and publish. You can also use **Actions → Build and release → Run workflow** on `main`.
+
+To test just the release logic locally: `npm run test:release`. This uses a fake GitHub API and never publishes anything. The local workflow linter (actionlint 1.7.12) does not yet recognize `queue: max`; its other checks pass with only that documented new key excluded.
 
 Java tests cover multiple storms/maps, dimension transfer, removal, reloads, layer isolation, missing maps, and safe JSON names. Web tests use actual BlueMap marker classes in a DOM harness to check native animation, UUID identity, safe names, stale-feed handling, and coexistence with BlueMap's normal marker refresh.
 

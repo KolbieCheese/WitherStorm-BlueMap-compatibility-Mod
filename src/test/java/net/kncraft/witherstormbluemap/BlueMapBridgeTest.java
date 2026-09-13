@@ -89,7 +89,7 @@ class BlueMapBridgeTest {
         bridge.enable(api);
         bridge.update(List.of(storm(first, world, 20)), false);
         assertEquals(1, feed().getAsJsonObject("maps").getAsJsonArray("overworld").size());
-        verify(api.getWebApp(), times(2)).registerScript("witherstorm-bluemap/storms.js?v=1.0.0");
+        verify(api.getWebApp(), times(2)).registerScript("witherstorm-bluemap/storms.js?v=" + BuildVersion.VERSION);
         assertTrue(Files.size(root.resolve("witherstorm-bluemap/storm.png")) > 0);
     }
 

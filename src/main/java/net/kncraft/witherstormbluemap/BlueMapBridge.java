@@ -43,7 +43,7 @@ final class BlueMapBridge {
             }
             feed = directory.resolve("live.json");
             atomicWrite(feed, emptyFeed());
-            enabled.getWebApp().registerScript(WEB_DIR + "/storms.js?v=1.0.0");
+            enabled.getWebApp().registerScript(WEB_DIR + "/storms.js?v=" + BuildVersion.VERSION);
             api = enabled;
         } catch (IOException exception) {
             feed = null;
