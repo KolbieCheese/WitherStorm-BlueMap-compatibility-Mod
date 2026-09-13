@@ -1,0 +1,38 @@
+# Forge creates this file at <world>/serverconfig/witherstormbluemap-server.toml.
+# Edit that server-world file, then restart the server. Keep existing values when upgrading.
+
+# Server sampling interval: 1-200 ticks; the browser polls every second.
+updateIntervalTicks = 20
+showSegments = true
+defaultHidden = false
+
+[icons]
+# Icon frame size in CSS pixels: 8-256. Default matches version 1.2.
+sizePixels = 40
+# Uses BlueMap's native near/medium/far distance thresholds.
+scaleWithZoom = true
+# Zoomed-out size = sizePixels * zoomScaleFactor (range 0.05-4.0).
+# Example: 40 * 0.5 = 20px. Ignored when scaleWithZoom = false.
+zoomScaleFactor = 0.5
+showPhaseNumber = true
+showHoverLabel = true
+showPhaseInLabel = true
+showSideHeads = true
+# Blank uses our bundled, phase-aware icons.
+# Custom images replace the complete head arrangement and retain the optional phase number.
+# Use a browser-accessible image URL or a path relative to the BlueMap web root.
+# Examples: "custom/storm.png" or "https://example.com/icons/storm.png"
+# Server filesystem paths such as C:\images\storm.png are not web URLs.
+customIcon = ""
+
+# Priority: phase-specific image -> customIcon -> bundled phase artwork.
+# Blank, invalid, or failed custom sources fall back to the next option.
+[icons.phaseIcons]
+phase0 = ""
+phase1 = ""
+phase2 = ""
+phase3 = ""
+phase4 = ""
+phase5 = ""
+phase6 = ""
+phase7 = ""

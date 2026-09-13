@@ -71,7 +71,7 @@ final class BlueMapBridge {
 
     synchronized boolean hasWriteFailure() { return writeFailed; }
 
-    synchronized void update(List<StormSnapshot> storms, boolean defaultHidden) {
+    synchronized void update(List<StormSnapshot> storms, boolean defaultHidden, IconSettings icons) {
         if (api == null) return;
         Map<String, List<Map<String, Object>>> maps = new LinkedHashMap<>();
         for (BlueMapMap map : api.getMaps()) {
@@ -95,7 +95,7 @@ final class BlueMapBridge {
         }
         // A single replaceable slot bounds memory if storage is slow.
         pending = GSON.toJson(Map.of("schema", 1, "generatedAt", System.currentTimeMillis(),
-                "defaultHidden", defaultHidden, "maps", maps));
+                "defaultHidden", defaultHidden, "icons", icons, "maps", maps));
     }
 
     synchronized void flush() {

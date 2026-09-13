@@ -7,7 +7,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
-import net.minecraftforge.common.ForgeConfigSpec;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.event.TickEvent;
@@ -34,22 +33,7 @@ public final class WitherStormBlueMap {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final ResourceLocation STORM = new ResourceLocation("witherstormmod", "wither_storm");
     private static final ResourceLocation SEGMENT = new ResourceLocation("witherstormmod", "wither_storm_segment");
-    private static final ForgeConfigSpec SPEC;
-    private static final ForgeConfigSpec.IntValue UPDATE_TICKS;
-    private static final ForgeConfigSpec.BooleanValue SEGMENTS;
-    private static final ForgeConfigSpec.BooleanValue HIDDEN;
-
-    static {
-        ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
-        UPDATE_TICKS = builder.comment("Position sampling interval in server ticks (20 ticks = 1 second at 20 TPS).",
-                "The browser polls the live feed every second, like BlueMap players.")
-                .defineInRange("updateIntervalTicks", 20, 1, 200);
-        SEGMENTS = builder.comment("Also show the independently moving Wither Storm segments.")
-                .define("showSegments", true);
-        HIDDEN = builder.comment("Hide the Wither Storms layer by default; viewers can toggle it on.")
-                .define("defaultHidden", false);
-        SPEC = builder.build();
-    }
+    private static final StormConfig CONFIG = StormConfig.SERVER;
 
     // Accessed only on the server thread. Events avoid scanning all entities every update.
     private final Map<UUID, Entity> tracked = new HashMap<>();
@@ -60,7 +44,7 @@ public final class WitherStormBlueMap {
     private boolean updateFailed;
 
     public WitherStormBlueMap() {
-        ModLoadingContext.get().registerConfig(ModConfig.Type.SERVER, SPEC);
+        ModLoadingContext.get().registerConfig(ModConfig.Type.SERVER, CONFIG.spec);
         MinecraftForge.EVENT_BUS.addListener(this::start);
         MinecraftForge.EVENT_BUS.addListener(this::prepare);
         MinecraftForge.EVENT_BUS.addListener(this::stop);
@@ -117,13 +101,13 @@ public final class WitherStormBlueMap {
 
     private void tick(TickEvent.ServerTickEvent event) {
         if (event.phase != TickEvent.Phase.END || bridge == null) return;
-        if (++ticks < UPDATE_TICKS.get()) return;
+        if (++ticks < CONFIG.updateTicks.get()) return;
         ticks = 0;
         tracked.values().removeIf(Entity::isRemoved);
         var snapshots = new ArrayList<StormSnapshot>(tracked.size());
         for (Entity entity : tracked.values()) {
             boolean segment = SEGMENT.equals(ForgeRegistries.ENTITY_TYPES.getKey(entity.getType()));
-            if (segment && !SEGMENTS.get()) continue;
+            if (segment && !CONFIG.showSegments.get()) continue;
             var appearance = StormPhaseReader.read(entity);
             // Do not filter isAlive(): the storm's temporary defeated state is still trackable.
             snapshots.add(new StormSnapshot(entity.getUUID(), entity.level(),
@@ -133,7 +117,7 @@ public final class WitherStormBlueMap {
                     appearance.phase(), appearance.otherHeadsDisabled()));
         }
         try {
-            bridge.update(snapshots, HIDDEN.get());
+            bridge.update(snapshots, CONFIG.defaultHidden.get(), CONFIG.icons());
             if (updateFailed) LOGGER.info("Wither Storm BlueMap marker updates recovered.");
             updateFailed = false;
         } catch (RuntimeException exception) {
@@ -149,7 +133,7 @@ public final class WitherStormBlueMap {
                     String status = "Wither Storm BlueMap: API "
                             + (bridge != null && bridge.isReady() ? "ready" : "waiting for BlueMap")
                             + "; loaded storms/segments: " + tracked.size()
-                            + "; interval: " + UPDATE_TICKS.get() + " ticks"
+                            + "; interval: " + CONFIG.updateTicks.get() + " ticks"
                             + (updateFailed || bridge != null && bridge.hasWriteFailure()
                                     ? "; last update failed (see server log)" : "");
                     context.getSource().sendSuccess(() -> Component.literal(status), false);

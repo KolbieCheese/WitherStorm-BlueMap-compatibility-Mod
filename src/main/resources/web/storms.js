@@ -13,18 +13,62 @@
     };
     const iconUrl = assetUrl("storm.png");
     const witherUrl = assetUrl("wither.png");
+    const failedCustomIcons = new Set();
+    let sourceSignature;
     let lastStamp = null;
     let lastChange = performance.now();
     let failed = false;
     let StormSet;
 
-    function updateAppearance(marker, storm) {
+    function iconSettings(value = {}) {
+        const number = (value, fallback, min, max) => Number.isFinite(value) && value >= min && value <= max ? value : fallback;
+        return {
+            sizePixels: number(value?.sizePixels, 40, 8, 256),
+            scaleWithZoom: value?.scaleWithZoom !== false,
+            zoomScaleFactor: number(value?.zoomScaleFactor, 0.5, 0.05, 4),
+            showPhaseNumber: value?.showPhaseNumber !== false,
+            showHoverLabel: value?.showHoverLabel !== false,
+            showPhaseInLabel: value?.showPhaseInLabel !== false,
+            showSideHeads: value?.showSideHeads !== false,
+            customIcon: value?.customIcon,
+            phaseIcons: value?.phaseIcons || {}
+        };
+    }
+
+    function customIconUrl(value) {
+        if (typeof value !== "string" || !value.trim() || value.length > 2048) return null;
+        try {
+            const url = new URL(value.trim(), document.baseURI);
+            if (!["https:", "http:"].includes(url.protocol) || failedCustomIcons.has(url.href)) return null;
+            // Preserve custom query strings, including signed image URLs.
+            return url.href;
+        } catch { return null; }
+    }
+
+    function updateSize(marker) {
+        const settings = marker.stormSettings;
+        const distance = marker.element.getAttribute("distance-data");
+        const zoomedOut = settings.scaleWithZoom && (distance === "med" || distance === "far");
+        const size = settings.sizePixels * (zoomedOut ? settings.zoomScaleFactor : 1);
+        const pixels = `${size}px`;
+        if (marker.stormIcon.style.width !== pixels) {
+            marker.stormIcon.style.width = pixels;
+            marker.stormIcon.style.height = pixels;
+            marker.stormPhase.style.fontSize = `${Math.max(10, Math.min(24, size * 0.3))}px`;
+        }
+    }
+
+    function updateAppearance(marker, storm, settings) {
+        marker.stormData = storm;
+        marker.stormSettings = settings;
         const phase = Number.isInteger(storm.phase) && storm.phase >= 0 && storm.phase <= 7 ? storm.phase : -1;
         const early = phase === 0 || phase === 1;
         const hybrid = phase === 2 || phase === 3;
-        const single = phase < 0 || storm.otherHeadsDisabled === true;
-        const mainUrl = early ? witherUrl : iconUrl;
+        const custom = customIconUrl(settings.phaseIcons[`phase${phase}`]) || customIconUrl(settings.customIcon);
+        const single = !!custom || !settings.showSideHeads || phase < 0 || storm.otherHeadsDisabled === true;
+        const mainUrl = custom || (early ? witherUrl : iconUrl);
         const sideUrl = early || hybrid ? witherUrl : iconUrl;
+        marker.stormCustomIcon = custom;
         if (marker.playerHeadElement.src !== mainUrl) marker.playerHeadElement.src = mainUrl;
         marker.data.playerHead = mainUrl;
         marker.element.setAttribute("data-storm-phase", String(phase));
@@ -34,11 +78,16 @@
             side.hidden = single;
         }
         marker.stormPhase.textContent = phase < 0 ? "" : String(phase);
+        marker.stormPhase.hidden = !settings.showPhaseNumber;
+        updateSize(marker);
         return phase < 0 ? "" : `Phase ${phase}`;
     }
 
     function apply(app, data) {
         const BlueMap = window.BlueMap;
+        const settings = iconSettings(data.icons);
+        const signature = JSON.stringify([settings.customIcon, settings.phaseIcons]);
+        if (sourceSignature !== signature) { failedCustomIcons.clear(); sourceSignature = signature; }
         if (!StormSet) {
             StormSet = class extends BlueMap.MarkerSet {
                 // Ordinary marker polls must not overwrite the faster live positions.
@@ -73,6 +122,15 @@
                 marker.data.type = "witherstorm";
                 marker.element.classList.add("witherstorm-marker");
                 const owner = marker.element.ownerDocument;
+                // Own image failures so a custom URL can never fall back to a Steve head.
+                const mainHead = marker.playerHeadElement.cloneNode(false);
+                marker.playerHeadElement.replaceWith(mainHead);
+                marker.playerHeadElement = mainHead;
+                mainHead.addEventListener("error", () => {
+                    if (!marker.stormCustomIcon) return;
+                    failedCustomIcons.add(marker.stormCustomIcon);
+                    updateAppearance(marker, marker.stormData, marker.stormSettings);
+                });
                 marker.stormIcon = owner.createElement("span");
                 marker.stormIcon.className = "witherstorm-icon";
                 marker.playerHeadElement.before(marker.stormIcon);
@@ -90,21 +148,27 @@
                 marker.stormPhase.className = "witherstorm-phase";
                 marker.stormPhase.setAttribute("aria-hidden", "true");
                 marker.stormIcon.append(marker.stormPhase);
+                const nativeBeforeRender = marker.onBeforeRender.bind(marker);
+                marker.onBeforeRender = (renderer, scene, camera) => {
+                    nativeBeforeRender(renderer, scene, camera);
+                    updateSize(marker);
+                };
                 set.add(marker);
             }
-            const phaseLabel = updateAppearance(marker, storm);
+            const phaseLabel = updateAppearance(marker, storm, settings);
             // BlueMap accepts HTML in names; never pass entity names to that sink.
             marker.updateFromData({
                 uuid: storm.uuid, name: "Wither Storm", foreign: false,
                 position: {x: storm.position.x, y: storm.position.y - 1.8, z: storm.position.z},
                 rotation: {yaw: 0, pitch: 0, roll: 0}
             });
-            const label = phaseLabel ? `${storm.name} [${phaseLabel}]` : storm.name;
+            const label = settings.showPhaseInLabel && phaseLabel ? `${storm.name} [${phaseLabel}]` : storm.name;
             marker.playerNameElement.textContent = label;
+            marker.playerNameElement.hidden = !settings.showHoverLabel;
             marker.playerHeadElement.alt = label;
             marker.data.name = label;
             marker.data.label = label;
-            marker.element.title = label;
+            marker.element.title = settings.showHoverLabel ? label : "";
         }
         for (const [id, marker] of set.markers) {
             if (!present.has(id)) set.remove(marker);

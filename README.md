@@ -4,7 +4,7 @@ A **server-side Forge 1.20.1 mod** that shows every loaded Cracker's Wither Stor
 
 The separate **Wither Storms** layer uses transparent head icons based on the mod's designs. Positions and phases are sampled every 20 server ticks and polled by the browser every second. Movement uses **BlueMap's own animated `PlayerMarker` class**, including its one-second easing animation. Storms remain a separate marker type and do not enter the real player list. Hover a storm to see **Wither Storm [Phase X]**; select its entry in the layer to center the map on it. Custom entity names replace "Wither Storm" when set. Full UUIDs identify storms internally, but are not included in visible labels.
 
-Icons use a 40-pixel frame nearby and 20 pixels at medium/far distances, following the same distance thresholds as BlueMap's 32/16-pixel player heads. Both head images have real PNG transparency, with a thin white silhouette outline and no square background.
+By default, icons use a 40-pixel frame nearby and 20 pixels at medium/far distances, following the same distance thresholds as BlueMap's 32/16-pixel player heads. Size, zoom scaling, labels, side heads, and custom images are configurable. Both bundled head images have real PNG transparency, with a thin white silhouette outline and no square background.
 
 | Main phase | Head display |
 | --- | --- |
@@ -49,7 +49,7 @@ For an external web host, serve or continuously synchronize that directory too, 
 
 ## Configuration
 
-Forge creates `<world>/serverconfig/witherstormbluemap-server.toml`:
+Forge creates `<world>/serverconfig/witherstormbluemap-server.toml` on the server. Upgrading adds the new options while preserving existing valid settings. A [complete example config](docs/witherstormbluemap-server.toml) is included in this repository. The main settings are:
 
 ```toml
 # 1–200 ticks; default is one second at 20 TPS.
@@ -58,9 +58,37 @@ updateIntervalTicks = 20
 showSegments = true
 # Viewers can always toggle the Wither Storms layer.
 defaultHidden = false
+
+[icons]
+# Nearby size in CSS pixels, allowed range 8–256.
+sizePixels = 40
+scaleWithZoom = true
+# Zoomed-out size = sizePixels × this factor; allowed range 0.05–4.0.
+zoomScaleFactor = 0.5
+showPhaseNumber = true
+showHoverLabel = true
+showPhaseInLabel = true
+showSideHeads = true
+# Empty uses our bundled icons. Otherwise use a web path or HTTP(S) image URL.
+customIcon = ""
+
+[icons.phaseIcons]
+# Optional overrides; the generated config includes phase0 through phase7.
+phase4 = ""
+phase7 = ""
 ```
 
 Edit with the server stopped. Changing sampling frequency does not change the browser's one-second player-style polling. This is near-real-time tracking, with sampling, network, and native animation latency; it is not a 20-FPS entity stream. The terrain beneath a storm still follows BlueMap's normal rendering schedule.
+
+`sizePixels = 64` with `zoomScaleFactor = 0.5` gives a 64px frame nearby and 32px when zoomed out. Setting `scaleWithZoom = false` keeps it at 64px at every distance. Scaling follows BlueMap's native distance step: medium/far starts beyond 1000 blocks from the camera plane, and both use the configured multiplier. It does not shrink continuously. Frame size includes the main layout; bundled side heads extend slightly past its edges.
+
+`showPhaseNumber` controls the number beside the icon. `showHoverLabel` controls the native name label and hover tooltip; names remain in the marker menu. `showPhaseInLabel` controls the `[Phase X]` suffix. `showSideHeads = false` simplifies the bundled design to its main head. These all default to `true`, preserving the version 1.2 appearance.
+
+Custom sources replace the **complete icon** and keep the optional phase number. Selection priority is the matching `icons.phaseIcons.phase0`–`phase7` entry, then `icons.customIcon`, then bundled phase artwork. To use a local custom image, put it somewhere served by BlueMap, for example `<BlueMap web root>/custom/my-storm.png`, and set `customIcon = "custom/my-storm.png"`. A path is relative to the map web page's base URL; a leading `/` starts at the website root. The integration never overwrites that custom directory. Full image URLs such as `https://example.com/storm.png` also work, and their query parameters are preserved. Windows filesystem paths, `file:` URLs, and `data:` URLs are unsupported. Use HTTPS images for an HTTPS map.
+
+A missing, invalid, or failed custom source falls back to the next option, restoring the bundled head arrangement when needed. Failed URLs are not retried on every poll; refresh the map after fixing an image at the same URL, or change its URL/query to retry. Transparent PNGs or SVGs work well. Custom files and URLs are fetched by the viewer's browser and must be accessible there; the Minecraft server does not download arbitrary images.
+
+Appearance settings travel in the live feed and update existing markers without resetting movement. After installing an updated integration JAR, restart the server and refresh BlueMap once to load the new script and stylesheet. For new worlds, a configured copy can also be placed in Forge's `defaultconfigs` directory before world creation.
 
 ### Keeping storms active when nobody is online
 
@@ -114,7 +142,7 @@ No personal access token or version file edits are required. The release job req
 
 To test just the release logic locally: `npm run test:release`. This uses a fake GitHub API and never publishes anything. The local workflow linter (actionlint 1.7.12) does not yet recognize `queue: max`; its other checks pass with only that documented new key excluded.
 
-Java tests cover multiple storms/maps, dimension transfer, removal, reloads, layer isolation, missing maps, safe JSON names, live phase/head-state accessors, graceful fallback, and real PNG transparency. Web tests use actual BlueMap marker classes in a DOM harness to check native animation, UUID identity, safe names, stale-feed handling, phase evolution, head regrowth, native distance-based sizing, and coexistence with BlueMap's normal marker refresh. Tests using BlueMap's real player marker manager also verify that storms keep moving after the last player leaves and appear when the map is first opened with zero players online.
+Java tests cover multiple storms/maps, dimension transfer, removal, reloads, layer isolation, missing maps, safe JSON names, live phase/head-state accessors, graceful fallback, real PNG transparency, config upgrades/validation, and appearance publication. Web tests use actual BlueMap marker classes in a DOM harness to check native animation, UUID identity, safe names, stale-feed handling, phase evolution, head regrowth, configurable sizing/labels, custom-image precedence/fallback, and coexistence with BlueMap's normal marker refresh. Tests using BlueMap's real player marker manager also verify that storms keep moving after the last player leaves and appear when the map is first opened with zero players online.
 
 To reproduce web tests with Node.js 20 or newer:
 

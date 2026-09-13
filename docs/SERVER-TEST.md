@@ -19,6 +19,14 @@ Run against a disposable test world, with Forge 47.4.0, Wither Storm 4.2.1, a co
 4. Check `witherstorm-bluemap/live.json`: `generatedAt` should keep increasing, and the storm UUIDs should remain. Run `witherstormbluemap status` from the server console to compare the loaded count.
 5. If the timestamp advances but the storm list empties, inspect the storm mod's chunk-loading setting on the actual server world. If the timestamp stops advancing, check for host sleep or a mod that pauses the empty server. If the feed contains storms but the map does not, check browser requests and JavaScript errors.
 
+## Appearance configuration
+
+1. Upgrade using the existing `witherstormbluemap-server.toml`, restart, and refresh BlueMap. Confirm Forge adds `[icons]` and `[icons.phaseIcons]` while retaining the existing sampling/segment/layer settings.
+2. Set `icons.sizePixels = 64` and `icons.zoomScaleFactor = 0.25` with the server stopped, then restart. The frame should be 64px nearby and 16px when zoomed out. Set `icons.scaleWithZoom = false` and confirm 64px at every distance.
+3. Toggle phase numbers, hover labels, the phase suffix, and side heads independently. Confirm names remain accessible in the marker menu when hover labels are off.
+4. Serve a custom PNG under BlueMap's `custom` folder and configure `icons.customIcon`. Set one `icons.phaseIcons.phaseX` override and confirm only storms in that phase use it. A custom source replaces the complete icon, without duplicated side heads.
+5. Try a missing custom image. Confirm fallback to the general custom image, then bundled artwork if both fail, without a Steve head or broken movement. Restore defaults by clearing the custom sources.
+
 Useful diagnostics:
 
 - `witherstorm-bluemap/live.json` under the BlueMap web root: UUIDs, coordinates, integer `phase`, and boolean `otherHeadsDisabled` grouped by **BlueMap map ID**, plus a changing `generatedAt` timestamp.

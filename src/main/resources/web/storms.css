@@ -1,4 +1,4 @@
-/* Follow PlayerMarker's own distance thresholds, at 125% of a player's icon size. */
+/* The live settings apply sizes at PlayerMarker's own camera-distance thresholds. */
 .bm-marker-player.witherstorm-marker .witherstorm-icon {
     display: block;
     position: relative;
@@ -42,13 +42,4 @@
     font: bold 12px/1 sans-serif;
     text-shadow: -1px -1px 1px black, 1px -1px 1px black, -1px 1px 1px black, 1px 1px 1px black;
     pointer-events: none;
-}
-.bm-marker-player.witherstorm-marker[distance-data="med"] .witherstorm-icon,
-.bm-marker-player.witherstorm-marker[distance-data="far"] .witherstorm-icon {
-    width: 20px;
-    height: 20px;
-}
-.bm-marker-player.witherstorm-marker[distance-data="med"] .witherstorm-phase,
-.bm-marker-player.witherstorm-marker[distance-data="far"] .witherstorm-phase {
-    font-size: 10px;
 }

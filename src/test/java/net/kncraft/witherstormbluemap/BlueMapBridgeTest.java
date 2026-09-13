@@ -56,7 +56,7 @@ class BlueMapBridgeTest {
     }
 
     @Test void multipleStormsAppearOnEveryMapOfTheirWorld() throws Exception {
-        bridge.update(List.of(storm(first, world, 10), storm(second, world, 30)), false);
+        bridge.update(List.of(storm(first, world, 10), storm(second, world, 30)), false, IconSettings.DEFAULTS);
         var maps = feed().getAsJsonObject("maps");
         assertEquals(2, maps.getAsJsonArray("overworld").size());
         assertEquals(2, maps.getAsJsonArray("cave").size());
@@ -69,28 +69,28 @@ class BlueMapBridgeTest {
     }
 
     @Test void movementTransferAndRemovalReplaceOldPositions() throws Exception {
-        bridge.update(List.of(storm(first, world, 10), storm(second, world, 30)), false);
-        bridge.update(List.of(storm(first, otherWorld, -400)), false);
+        bridge.update(List.of(storm(first, world, 10), storm(second, world, 30)), false, IconSettings.DEFAULTS);
+        bridge.update(List.of(storm(first, otherWorld, -400)), false, IconSettings.DEFAULTS);
         var maps = feed().getAsJsonObject("maps");
         assertEquals(0, maps.getAsJsonArray("overworld").size());
         var moved = maps.getAsJsonArray("nether").get(0).getAsJsonObject();
         assertEquals(first.toString(), moved.get("uuid").getAsString());
         assertEquals(-400, moved.getAsJsonObject("position").get("x").getAsDouble());
-        bridge.update(List.of(), false);
+        bridge.update(List.of(), false, IconSettings.DEFAULTS);
         assertEquals(0, feed().getAsJsonObject("maps").getAsJsonArray("nether").size());
     }
 
     @Test void disableClearsOnlyOwnedLayerAndReloadReinstallsAssets() throws Exception {
         MarkerSet unrelated = new MarkerSet("Homes");
         overworld.getMarkerSets().put("homes", unrelated);
-        bridge.update(List.of(storm(first, world, 10)), true);
+        bridge.update(List.of(storm(first, world, 10)), true, IconSettings.DEFAULTS);
         assertTrue(overworld.getMarkerSets().get(BlueMapBridge.SET_ID).isDefaultHidden());
         bridge.disable(api);
         assertFalse(bridge.isReady());
         assertEquals(Map.of("homes", unrelated), overworld.getMarkerSets());
         assertTrue(feed().getAsJsonObject("maps").entrySet().isEmpty());
         bridge.enable(api);
-        bridge.update(List.of(storm(first, world, 20)), false);
+        bridge.update(List.of(storm(first, world, 20)), false, IconSettings.DEFAULTS);
         assertEquals(1, feed().getAsJsonObject("maps").getAsJsonArray("overworld").size());
         verify(api.getWebApp(), times(2)).registerScript("witherstorm-bluemap/storms.js?v=" + BuildVersion.VERSION);
         verify(api.getWebApp(), times(2)).registerStyle("witherstorm-bluemap/storms.css?v=" + BuildVersion.VERSION);
@@ -103,7 +103,7 @@ class BlueMapBridgeTest {
         when(api.getWorld(missing)).thenReturn(Optional.empty());
         String name = "<img src=x onerror=alert(1)> & \"storm\"";
         bridge.update(List.of(storm(first, missing, 1),
-                new StormSnapshot(second, world, "minecraft:overworld", name, 0, 64, 0, true, 6, true)), false);
+                new StormSnapshot(second, world, "minecraft:overworld", name, 0, 64, 0, true, 6, true)), false, IconSettings.DEFAULTS);
         var entries = feed().getAsJsonObject("maps").getAsJsonArray("overworld");
         assertEquals(1, entries.size());
         assertEquals(name, entries.get(0).getAsJsonObject().get("name").getAsString());
@@ -111,13 +111,13 @@ class BlueMapBridgeTest {
 
     @Test void phasesAndHeadStatesUpdateIndependentlyForStormsAndSegments() throws Exception {
         bridge.update(List.of(storm(first, world, 10),
-                new StormSnapshot(second, world, "minecraft:overworld", "Segment", 20, 64, 0, true, 6, true)), false);
+                new StormSnapshot(second, world, "minecraft:overworld", "Segment", 20, 64, 0, true, 6, true)), false, IconSettings.DEFAULTS);
         var entries = feed().getAsJsonObject("maps").getAsJsonArray("overworld");
         assertEquals(4, entries.get(0).getAsJsonObject().get("phase").getAsInt());
         assertFalse(entries.get(0).getAsJsonObject().get("otherHeadsDisabled").getAsBoolean());
         assertEquals(6, entries.get(1).getAsJsonObject().get("phase").getAsInt());
         assertTrue(entries.get(1).getAsJsonObject().get("otherHeadsDisabled").getAsBoolean());
-        bridge.update(List.of(new StormSnapshot(second, world, "minecraft:overworld", "Segment", 20, 64, 0, true, 7, false)), false);
+        bridge.update(List.of(new StormSnapshot(second, world, "minecraft:overworld", "Segment", 20, 64, 0, true, 7, false)), false, IconSettings.DEFAULTS);
         var evolved = feed().getAsJsonObject("maps").getAsJsonArray("overworld").get(0).getAsJsonObject();
         assertEquals(second.toString(), evolved.get("uuid").getAsString());
         assertEquals(7, evolved.get("phase").getAsInt());
@@ -143,5 +143,21 @@ class BlueMapBridgeTest {
             assertEquals(0, icon.getRGB(0, 0) >>> 24, asset);
             assertEquals(0, icon.getRGB(icon.getWidth() - 1, icon.getHeight() - 1) >>> 24, asset);
         }
+    }
+
+    @Test void appearanceSettingsArePublishedWithTheLiveFeed() throws Exception {
+        var icons = new IconSettings(64, false, 0.25, false, false, false, false,
+                "custom/storm.png", Map.of("phase7", "https://example.com/seven.png?x=1&y=2"));
+        bridge.update(List.of(storm(first, world, 10)), false, icons);
+        var appearance = feed().getAsJsonObject("icons");
+        assertEquals(64, appearance.get("sizePixels").getAsInt());
+        assertFalse(appearance.get("scaleWithZoom").getAsBoolean());
+        assertEquals(0.25, appearance.get("zoomScaleFactor").getAsDouble());
+        assertFalse(appearance.get("showPhaseNumber").getAsBoolean());
+        assertFalse(appearance.get("showHoverLabel").getAsBoolean());
+        assertFalse(appearance.get("showPhaseInLabel").getAsBoolean());
+        assertFalse(appearance.get("showSideHeads").getAsBoolean());
+        assertEquals("custom/storm.png", appearance.get("customIcon").getAsString());
+        assertEquals("https://example.com/seven.png?x=1&y=2", appearance.getAsJsonObject("phaseIcons").get("phase7").getAsString());
     }
 }

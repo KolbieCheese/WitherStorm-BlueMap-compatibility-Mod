@@ -263,3 +263,96 @@ test('storm icon scales at the native player distance thresholds without changin
     marker.elementObject.element.remove();
     player.elementObject.element.remove();
 });
+
+test('live config changes size, zoom behavior and label options on existing markers', async () => {
+    const h = await harness();
+    const feed = icons => ({schema: 1, generatedAt: 2, icons,
+        maps: {overworld: [{...storm(id1), phase: 4}]}});
+    h.setData(feed({sizePixels: 64, scaleWithZoom: true, zoomScaleFactor: 0.25}));
+    await h.poll();
+    const marker = h.set.markers.get('storm-' + id1);
+    const camera = new PerspectiveCamera();
+    const render = distance => {
+        camera.position.set(marker.position.x, marker.position.y, marker.position.z + distance);
+        camera.updateMatrixWorld();
+        marker.onBeforeRender(null, null, camera);
+        return marker.stormIcon.style.width;
+    };
+    assert.equal(render(100), '64px');
+    assert.equal(render(2000), '16px');
+    assert.equal(render(6000), '16px');
+
+    h.setData(feed({sizePixels: 80, scaleWithZoom: false, zoomScaleFactor: 0.25,
+        showPhaseNumber: false, showHoverLabel: false, showPhaseInLabel: false, showSideHeads: false}));
+    await h.poll();
+    assert.equal(h.set.markers.get('storm-' + id1), marker);
+    assert.equal(render(6000), '80px');
+    assert.equal(render(100), '80px');
+    assert.equal(marker.stormPhase.hidden, true);
+    assert.equal(marker.playerNameElement.hidden, true);
+    assert.equal(marker.element.title, '');
+    assert.equal(marker.data.label, 'Wither Storm');
+    assert.equal(marker.stormSideHeads.every(head => head.hidden), true);
+
+    h.setData(feed({})); await h.poll();
+    assert.equal(render(100), '40px');
+    assert.equal(render(6000), '20px');
+    assert.equal(marker.stormPhase.hidden, false);
+    assert.equal(marker.playerNameElement.hidden, false);
+    assert.equal(marker.element.title, 'Wither Storm [Phase 4]');
+    assert.equal(marker.stormSideHeads.every(head => !head.hidden), true);
+});
+
+test('custom icons resolve web paths and preserve URL queries with per-phase priority', async () => {
+    const h = await harness();
+    h.setData({schema: 1, generatedAt: 2, icons: {customIcon: 'custom/all.png',
+        phaseIcons: {phase4: 'https://icons.example/four.png?token=abc&v=9'}}, maps: {overworld: [
+            {...storm(id1), phase: 4}, {...storm(id2), phase: 2}
+        ]}});
+    await h.poll();
+    const first = h.set.markers.get('storm-' + id1);
+    const second = h.set.markers.get('storm-' + id2);
+    assert.equal(first.playerHeadElement.src, 'https://icons.example/four.png?token=abc&v=9');
+    assert.equal(second.playerHeadElement.src, 'https://map.example/subpath/custom/all.png');
+    assert.equal(first.stormIcon.classList.contains('single-head'), true);
+    assert.equal(first.stormSideHeads.every(head => head.hidden), true);
+    assert.equal(first.stormPhase.textContent, '4');
+    assert.equal(first.data.label, 'Wither Storm [Phase 4]');
+});
+
+test('failed custom images fall back through configured sources to bundled artwork without Steve heads', async () => {
+    const h = await harness();
+    h.setData({schema: 1, generatedAt: 2, icons: {customIcon: '/custom/all.png',
+        phaseIcons: {phase4: '/custom/four.png'}}, maps: {overworld: [{...storm(id1), phase: 4}]}});
+    await h.poll();
+    const marker = h.set.markers.get('storm-' + id1);
+    marker.playerHeadElement.dispatchEvent(new window.Event('error'));
+    assert.equal(marker.playerHeadElement.src, 'https://map.example/custom/all.png');
+    marker.playerHeadElement.dispatchEvent(new window.Event('error'));
+    assert.ok(marker.playerHeadElement.src.endsWith('/storm.png?v=1.0.0'));
+    assert.equal(marker.stormIcon.classList.contains('single-head'), false);
+    assert.equal(marker.stormSideHeads.every(head => !head.hidden), true);
+    await h.poll();
+    assert.ok(marker.playerHeadElement.src.endsWith('/storm.png?v=1.0.0'));
+    marker.playerHeadElement.dispatchEvent(new window.Event('error'));
+    assert.equal(marker.playerHeadElement.src.includes('steve'), false);
+    // Editing the source allows a retry, without replacing the marker.
+    h.setData({schema: 1, generatedAt: 3, icons: {customIcon: '/custom/fixed.png'},
+        maps: {overworld: [{...storm(id1), phase: 4}]}});
+    await h.poll();
+    assert.equal(marker.playerHeadElement.src, 'https://map.example/custom/fixed.png');
+    assert.equal(h.set.markers.get('storm-' + id1), marker);
+});
+
+test('invalid settings and non-web icon schemes safely use defaults', async () => {
+    const h = await harness();
+    for (const customIcon of ['javascript:alert(1)', 'file:///C:/storm.png', 'data:image/svg+xml,anything', 23]) {
+        h.setData({schema: 1, generatedAt: 2, icons: {sizePixels: -10,
+            zoomScaleFactor: 'huge', customIcon}, maps: {overworld: [{...storm(id1), phase: 0}]}});
+        await h.poll();
+        const marker = h.set.markers.get('storm-' + id1);
+        assert.equal(marker.stormIcon.style.width, '40px');
+        assert.ok(marker.playerHeadElement.src.endsWith('/wither.png?v=1.0.0'));
+        assert.equal(marker.data.label, 'Wither Storm [Phase 0]');
+    }
+});
