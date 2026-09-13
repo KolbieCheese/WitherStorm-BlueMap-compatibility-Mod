@@ -1,0 +1,54 @@
+/* Follow PlayerMarker's own distance thresholds, at 125% of a player's icon size. */
+.bm-marker-player.witherstorm-marker .witherstorm-icon {
+    display: block;
+    position: relative;
+    width: 40px;
+    height: 40px;
+    background: none;
+    border: 0;
+    transition: width 0.3s, height 0.3s;
+}
+.bm-marker-player.witherstorm-marker .witherstorm-icon img {
+    position: absolute;
+    object-fit: contain;
+    image-rendering: auto;
+    background: none;
+    border: 0;
+}
+.bm-marker-player.witherstorm-marker .witherstorm-main-head {
+    width: 84%;
+    height: 84%;
+    left: 8%;
+    top: 12%;
+}
+.bm-marker-player.witherstorm-marker .single-head .witherstorm-main-head {
+    width: 100%;
+    height: 100%;
+    left: 0;
+    top: 0;
+}
+.bm-marker-player.witherstorm-marker .witherstorm-side-head {
+    width: 48%;
+    height: 48%;
+    top: 0;
+}
+.bm-marker-player.witherstorm-marker .witherstorm-side-head.left { left: -6%; }
+.bm-marker-player.witherstorm-marker .witherstorm-side-head.right { right: -6%; }
+.bm-marker-player.witherstorm-marker .witherstorm-phase {
+    position: absolute;
+    bottom: -2px;
+    right: -2px;
+    color: white;
+    font: bold 12px/1 sans-serif;
+    text-shadow: -1px -1px 1px black, 1px -1px 1px black, -1px 1px 1px black, 1px 1px 1px black;
+    pointer-events: none;
+}
+.bm-marker-player.witherstorm-marker[distance-data="med"] .witherstorm-icon,
+.bm-marker-player.witherstorm-marker[distance-data="far"] .witherstorm-icon {
+    width: 20px;
+    height: 20px;
+}
+.bm-marker-player.witherstorm-marker[distance-data="med"] .witherstorm-phase,
+.bm-marker-player.witherstorm-marker[distance-data="far"] .witherstorm-phase {
+    font-size: 10px;
+}

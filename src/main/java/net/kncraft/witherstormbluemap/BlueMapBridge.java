@@ -35,7 +35,7 @@ final class BlueMapBridge {
         Path directory = enabled.getWebApp().getWebRoot().resolve(WEB_DIR);
         try {
             Files.createDirectories(directory);
-            for (String asset : List.of("storms.js", "storm.png")) {
+            for (String asset : List.of("storms.js", "storms.css", "storm.png", "wither.png")) {
                 try (var input = BlueMapBridge.class.getResourceAsStream("/web/" + asset)) {
                     if (input == null) throw new IOException("Missing bundled asset: " + asset);
                     Files.copy(input, directory.resolve(asset), StandardCopyOption.REPLACE_EXISTING);
@@ -43,6 +43,7 @@ final class BlueMapBridge {
             }
             feed = directory.resolve("live.json");
             atomicWrite(feed, emptyFeed());
+            enabled.getWebApp().registerStyle(WEB_DIR + "/storms.css?v=" + BuildVersion.VERSION);
             enabled.getWebApp().registerScript(WEB_DIR + "/storms.js?v=" + BuildVersion.VERSION);
             api = enabled;
         } catch (IOException exception) {
@@ -87,7 +88,9 @@ final class BlueMapBridge {
                             "name", storm.name() + (storm.segment() ? " (segment)" : "")
                                     + " [" + storm.id().toString().substring(0, 8) + "]",
                             "position", Map.of("x", storm.x(), "y", storm.y(), "z", storm.z()),
-                            "dimension", storm.dimension()));
+                            "dimension", storm.dimension(),
+                            "phase", storm.phase(),
+                            "otherHeadsDisabled", storm.otherHeadsDisabled()));
                 }
             });
         }

@@ -124,11 +124,13 @@ public final class WitherStormBlueMap {
         for (Entity entity : tracked.values()) {
             boolean segment = SEGMENT.equals(ForgeRegistries.ENTITY_TYPES.getKey(entity.getType()));
             if (segment && !SEGMENTS.get()) continue;
+            var appearance = StormPhaseReader.read(entity);
             // Do not filter isAlive(): the storm's temporary defeated state is still trackable.
             snapshots.add(new StormSnapshot(entity.getUUID(), entity.level(),
                     entity.level().dimension().location().toString(),
                     entity.hasCustomName() ? entity.getCustomName().getString() : "Wither Storm",
-                    entity.getX(), entity.getY(), entity.getZ(), segment));
+                    entity.getX(), entity.getY(), entity.getZ(), segment,
+                    appearance.phase(), appearance.otherHeadsDisabled()));
         }
         try {
             bridge.update(snapshots, HIDDEN.get());

@@ -6,13 +6,38 @@
     const SET_ID = "kncraft-wither-storms";
     const scriptUrl = document.currentScript?.src || new URL("witherstorm-bluemap/storms.js", document.baseURI);
     const feedUrl = new URL("live.json", scriptUrl);
-    const icon = new URL("storm.png", scriptUrl);
-    icon.search = new URL(scriptUrl).search;
-    const iconUrl = icon.href;
+    const assetUrl = name => {
+        const url = new URL(name, scriptUrl);
+        url.search = new URL(scriptUrl).search;
+        return url.href;
+    };
+    const iconUrl = assetUrl("storm.png");
+    const witherUrl = assetUrl("wither.png");
     let lastStamp = null;
     let lastChange = performance.now();
     let failed = false;
     let StormSet;
+
+    function updateAppearance(marker, storm) {
+        const phase = Number.isInteger(storm.phase) && storm.phase >= 0 && storm.phase <= 7 ? storm.phase : -1;
+        const early = phase === 0 || phase === 1;
+        const hybrid = phase === 2 || phase === 3;
+        const single = phase < 0 || storm.otherHeadsDisabled === true;
+        const mainUrl = early ? witherUrl : iconUrl;
+        const sideUrl = early || hybrid ? witherUrl : iconUrl;
+        if (marker.playerHeadElement.src !== mainUrl) marker.playerHeadElement.src = mainUrl;
+        marker.data.playerHead = mainUrl;
+        marker.element.setAttribute("data-storm-phase", String(phase));
+        marker.stormIcon.classList.toggle("single-head", single);
+        for (const side of marker.stormSideHeads) {
+            if (side.src !== sideUrl) side.src = sideUrl;
+            side.hidden = single;
+        }
+        marker.stormPhase.textContent = phase < 0 ? "" : String(phase);
+        const phaseLabel = phase < 0 ? "" : `Phase ${phase}`;
+        marker.playerHeadElement.alt = phaseLabel ? `Wither Storm — ${phaseLabel}` : "Wither Storm";
+        return phaseLabel;
+    }
 
     function apply(app, data) {
         const BlueMap = window.BlueMap;
@@ -49,10 +74,27 @@
                 // Keep native animation without presenting storms as real players in the menu.
                 marker.data.type = "witherstorm";
                 marker.element.classList.add("witherstorm-marker");
-                marker.playerHeadElement.alt = "Wither Storm";
-                marker.playerHeadElement.style.cssText = "width:48px;height:48px;object-fit:contain;filter:drop-shadow(0 0 4px #a642e8)";
+                const owner = marker.element.ownerDocument;
+                marker.stormIcon = owner.createElement("span");
+                marker.stormIcon.className = "witherstorm-icon";
+                marker.playerHeadElement.before(marker.stormIcon);
+                marker.playerHeadElement.classList.add("witherstorm-main-head");
+                marker.stormIcon.append(marker.playerHeadElement);
+                marker.stormSideHeads = ["left", "right"].map(side => {
+                    const head = owner.createElement("img");
+                    head.className = `witherstorm-side-head ${side}`;
+                    head.alt = "";
+                    head.draggable = false;
+                    marker.stormIcon.prepend(head);
+                    return head;
+                });
+                marker.stormPhase = owner.createElement("span");
+                marker.stormPhase.className = "witherstorm-phase";
+                marker.stormPhase.setAttribute("aria-hidden", "true");
+                marker.stormIcon.append(marker.stormPhase);
                 set.add(marker);
             }
+            const phaseLabel = updateAppearance(marker, storm);
             // BlueMap accepts HTML in names; never pass entity names to that sink.
             marker.updateFromData({
                 uuid: storm.uuid, name: "Wither Storm", foreign: false,
@@ -61,8 +103,8 @@
             });
             marker.playerNameElement.textContent = storm.name;
             marker.data.name = storm.name;
-            marker.data.label = storm.name;
-            marker.element.title = `${storm.name}\n${storm.dimension}\nX ${storm.position.x.toFixed(1)}, Y ${storm.position.y.toFixed(1)}, Z ${storm.position.z.toFixed(1)}`;
+            marker.data.label = phaseLabel ? `${storm.name} — ${phaseLabel}` : storm.name;
+            marker.element.title = `${marker.data.label}\n${storm.dimension}\nX ${storm.position.x.toFixed(1)}, Y ${storm.position.y.toFixed(1)}, Z ${storm.position.z.toFixed(1)}`;
         }
         for (const [id, marker] of set.markers) {
             if (!present.has(id)) set.remove(marker);

@@ -47,7 +47,7 @@ class BlueMapBridgeTest {
     }
 
     StormSnapshot storm(UUID id, Object dimension, double x) {
-        return new StormSnapshot(id, dimension, "example:dimension", "Wither Storm", x, 80, -20, false);
+        return new StormSnapshot(id, dimension, "example:dimension", "Wither Storm", x, 80, -20, false, 4, false);
     }
 
     JsonObject feed() throws Exception {
@@ -90,7 +90,9 @@ class BlueMapBridgeTest {
         bridge.update(List.of(storm(first, world, 20)), false);
         assertEquals(1, feed().getAsJsonObject("maps").getAsJsonArray("overworld").size());
         verify(api.getWebApp(), times(2)).registerScript("witherstorm-bluemap/storms.js?v=" + BuildVersion.VERSION);
+        verify(api.getWebApp(), times(2)).registerStyle("witherstorm-bluemap/storms.css?v=" + BuildVersion.VERSION);
         assertTrue(Files.size(root.resolve("witherstorm-bluemap/storm.png")) > 0);
+        assertTrue(Files.size(root.resolve("witherstorm-bluemap/wither.png")) > 0);
     }
 
     @Test void unmappedWorldIsSkippedAndNamesRoundTripAsData() throws Exception {
@@ -98,9 +100,45 @@ class BlueMapBridgeTest {
         when(api.getWorld(missing)).thenReturn(Optional.empty());
         String name = "<img src=x onerror=alert(1)> & \"storm\"";
         bridge.update(List.of(storm(first, missing, 1),
-                new StormSnapshot(second, world, "minecraft:overworld", name, 0, 64, 0, true)), false);
+                new StormSnapshot(second, world, "minecraft:overworld", name, 0, 64, 0, true, 6, true)), false);
         var entries = feed().getAsJsonObject("maps").getAsJsonArray("overworld");
         assertEquals(1, entries.size());
         assertTrue(entries.get(0).getAsJsonObject().get("name").getAsString().startsWith(name + " (segment)"));
+    }
+
+    @Test void phasesAndHeadStatesUpdateIndependentlyForStormsAndSegments() throws Exception {
+        bridge.update(List.of(storm(first, world, 10),
+                new StormSnapshot(second, world, "minecraft:overworld", "Segment", 20, 64, 0, true, 6, true)), false);
+        var entries = feed().getAsJsonObject("maps").getAsJsonArray("overworld");
+        assertEquals(4, entries.get(0).getAsJsonObject().get("phase").getAsInt());
+        assertFalse(entries.get(0).getAsJsonObject().get("otherHeadsDisabled").getAsBoolean());
+        assertEquals(6, entries.get(1).getAsJsonObject().get("phase").getAsInt());
+        assertTrue(entries.get(1).getAsJsonObject().get("otherHeadsDisabled").getAsBoolean());
+        bridge.update(List.of(new StormSnapshot(second, world, "minecraft:overworld", "Segment", 20, 64, 0, true, 7, false)), false);
+        var evolved = feed().getAsJsonObject("maps").getAsJsonArray("overworld").get(0).getAsJsonObject();
+        assertEquals(second.toString(), evolved.get("uuid").getAsString());
+        assertEquals(7, evolved.get("phase").getAsInt());
+        assertFalse(evolved.get("otherHeadsDisabled").getAsBoolean());
+    }
+
+    @Test void bundledHeadsHaveRealTransparentBackgrounds() throws Exception {
+        for (String asset : List.of("storm.png", "wither.png")) {
+            var icon = javax.imageio.ImageIO.read(root.resolve("witherstorm-bluemap/" + asset).toFile());
+            assertNotNull(icon, asset);
+            assertTrue(icon.getColorModel().hasAlpha(), asset + " must contain real alpha, not a drawn checkerboard");
+            int transparent = 0, opaque = 0;
+            for (int y = 0; y < icon.getHeight(); y++) {
+                for (int x = 0; x < icon.getWidth(); x++) {
+                    int alpha = icon.getRGB(x, y) >>> 24;
+                    if (alpha == 0) transparent++;
+                    if (alpha == 255) opaque++;
+                }
+            }
+            int area = icon.getWidth() * icon.getHeight();
+            assertTrue(transparent > area / 10, asset + " needs transparent space outside the head");
+            assertTrue(opaque > area / 10, asset + " must retain the head");
+            assertEquals(0, icon.getRGB(0, 0) >>> 24, asset);
+            assertEquals(0, icon.getRGB(icon.getWidth() - 1, icon.getHeight() - 1) >>> 24, asset);
+        }
     }
 }

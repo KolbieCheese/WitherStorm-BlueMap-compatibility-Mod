@@ -2,6 +2,7 @@
 build/
 .dev/
 run/
+/logs/
 *.iml
 .idea/
 .classpath

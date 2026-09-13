@@ -2,7 +2,19 @@
 
 A **server-side Forge 1.20.1 mod** that shows every loaded Cracker's Wither Storm on BlueMap, including multiple storms at once. Each storm uses its full entity UUID for identity, so movement and server restarts do not mix up markers.
 
-The separate **Wither Storms** layer uses the mod's original storm-head artwork. Positions are sampled every 20 server ticks and polled by the browser every second. Movement uses **BlueMap's own animated `PlayerMarker` class**, including its one-second easing animation. Storms remain a separate marker type and do not enter the real player list. Hover a storm to see its name, dimension, and coordinates; select its entry in the layer to center the map on it.
+The separate **Wither Storms** layer uses transparent head icons based on the mod's designs. Positions and phases are sampled every 20 server ticks and polled by the browser every second. Movement uses **BlueMap's own animated `PlayerMarker` class**, including its one-second easing animation. Storms remain a separate marker type and do not enter the real player list. Hover a storm to see its name, phase, dimension, and coordinates; select its entry in the layer to center the map on it.
+
+Icons use a 40-pixel frame nearby and 20 pixels at medium/far distances, following the same distance thresholds as BlueMap's 32/16-pixel player heads. Both head images have real PNG transparency, with a thin white silhouette outline and no square background.
+
+| Main phase | Head display |
+| --- | --- |
+| 0–1 | Three ordinary dark Wither skulls |
+| 2–3 | Mutated purple-eyed main head with ordinary side skulls |
+| 4–5 | Three mutated heads |
+| 6 | Mutated head, with side heads hidden until the entity enables them again |
+| 7 | Three mutated heads |
+
+A small number beside the heads identifies each main phase **0–7**. Stages that change the body while retaining the same heads share head artwork; the number still updates. The mod's live `areOtherHeadsDisabled()` state controls side-head visibility independently for each storm and segment. Intermediate body stages such as 5.5 and the phase-7 hole are represented by their main phase (5 or 7), not a separate fractional number. Unknown phases fall back to the single mature head without a number. Phase changes preserve the existing marker and its native movement animation.
 
 ## Compatibility
 
@@ -31,7 +43,7 @@ BlueMap was **not installed** in the inspected KNCraft client instance. Choose t
 
 Install this integration on the **server only**; players do not need it in their client packs. It does not add blocks, entities, networking channels, or extra chunk tickets. The existing KNCraft installation and saved worlds have not been modified.
 
-BlueMap's standard web server serves the extension automatically. It installs `witherstorm-bluemap/storms.js`, `storm.png`, and `live.json` beneath BlueMap's configured web root and registers the script through the API. No manual JavaScript edits are needed.
+BlueMap's standard web server serves the extension automatically. It installs `witherstorm-bluemap/storms.js`, `storms.css`, `storm.png`, `wither.png`, and `live.json` beneath BlueMap's configured web root and registers the script and style through the API. Published versions include cache-versioned script, style, and image URLs. No manual JavaScript edits are needed. After an upgrade, restart the server and refresh the map page to load the new extension.
 
 For an external web host, serve or continuously synchronize that directory too, including the changing `live.json`. Exclude that JSON from reverse-proxy/CDN caching. A deployment that copies only rendered tiles cannot deliver live storm positions.
 
@@ -50,6 +62,21 @@ defaultHidden = false
 
 Edit with the server stopped. Changing sampling frequency does not change the browser's one-second player-style polling. This is near-real-time tracking, with sampling, network, and native animation latency; it is not a 20-FPS entity stream. The terrain beneath a storm still follows BlueMap's normal rendering schedule.
 
+### Keeping storms active when nobody is online
+
+The [Wither Storm mod's official description](https://modrinth.com/mod/crackers-wither-storm-mod) confirms that it can load chunks without a player. However, **version 4.2.1 disables chunk loading while the entire server is empty by default**. Its `WitherStormModChunkLoader.tick()` releases its chunk tickets when the player count reaches zero unless the following option is enabled. The storm remains saved in the world, but being saved is different from remaining loaded and moving.
+
+To keep storms active with nobody online, stop the side-server and change this existing entry in **that server world's** `<world>/serverconfig/witherstormmod-server.toml`, then restart:
+
+```toml
+[server.misc]
+shouldChunkLoadWhenNoPlayers = true
+```
+
+Edit the existing `[server.misc]` section rather than adding a duplicate. This is the **Wither Storm mod's** configuration, not `witherstormbluemap-server.toml` or a client setting. Each world has its own file. All four inspected local KNCraft saves had this setting at `false`; a separately hosted server must be checked independently. Enabling it allows the storm's normal activity to continue while players are offline.
+
+This integration samples server entities regardless of player count, and its live feed and marker layer are separate from BlueMap's player list. A stationary but loaded storm remains visible because the feed timestamp continues to update. When the storm mod unloads the entity, its live marker disappears until the entity loads again. The integration does not add its own chunk tickets or override the storm mod's gameplay setting. A host or another mod that pauses/stops the entire empty server must also allow it to keep ticking for live tracking to continue.
+
 All BlueMap maps for a matching dimension receive the layer, even when their map IDs differ from the dimension ID. The tracker discovers already-loaded storms at server startup, then uses entity join/leave events. Removed or unloaded storms disappear on the next update; dimension transfers move them between maps. Temporary defeated states are retained while the entity exists. Separate head/tentacle helper entities are excluded. Disabling segment tracking leaves the main storms visible.
 
 BlueMap reloads reinstall assets and rebuild the layer. Clean shutdown publishes an empty feed. The browser removes markers when the feed fails or has been unchanged for more than 15 seconds, preventing indefinite stale positions after a crash. Other addons' marker layers are left intact.
@@ -63,7 +90,7 @@ $env:JAVA_HOME = 'C:\path\to\jdk-17'
 .\gradlew.bat build
 ```
 
-The Gradle wrapper downloads dependencies and produces the reobfuscated server JAR in `build/libs`. Wither Storm and BlueMap themselves are not bundled. Entity matching uses the verified registry IDs `witherstormmod:wither_storm` and `witherstormmod:wither_storm_segment`, avoiding a dependency on the storm mod's internal Java classes.
+The Gradle wrapper downloads dependencies and produces the reobfuscated server JAR in `build/libs`. Wither Storm and BlueMap themselves are not bundled. Entity matching uses the verified registry IDs `witherstormmod:wither_storm` and `witherstormmod:wither_storm_segment`. Phase information is read through the storm mod's public `getPhase()` and `areOtherHeadsDisabled()` methods, with method lookup cached per entity class. These accessors were verified in the installed 4.2.1 JAR. No client model classes or full entity NBT serialization are needed. If an incompatible accessor fails, tracking continues with the default icon and a single warning per class.
 
 Local builds default to `WitherStormBlueMap1.0.jar`. To build a specific sequential version, use `./gradlew build -PmodVersion=1.10` (or `.\gradlew.bat` on Windows). This sets the filename, Forge mod metadata, and web asset cache version together.
 
@@ -87,7 +114,7 @@ No personal access token or version file edits are required. The release job req
 
 To test just the release logic locally: `npm run test:release`. This uses a fake GitHub API and never publishes anything. The local workflow linter (actionlint 1.7.12) does not yet recognize `queue: max`; its other checks pass with only that documented new key excluded.
 
-Java tests cover multiple storms/maps, dimension transfer, removal, reloads, layer isolation, missing maps, and safe JSON names. Web tests use actual BlueMap marker classes in a DOM harness to check native animation, UUID identity, safe names, stale-feed handling, and coexistence with BlueMap's normal marker refresh.
+Java tests cover multiple storms/maps, dimension transfer, removal, reloads, layer isolation, missing maps, safe JSON names, live phase/head-state accessors, graceful fallback, and real PNG transparency. Web tests use actual BlueMap marker classes in a DOM harness to check native animation, UUID identity, safe names, stale-feed handling, phase evolution, head regrowth, native distance-based sizing, and coexistence with BlueMap's normal marker refresh. Tests using BlueMap's real player marker manager also verify that storms keep moving after the last player leaves and appear when the map is first opened with zero players online.
 
 To reproduce web tests with Node.js 20 or newer:
 
@@ -101,10 +128,10 @@ $env:BLUEMAP_SOURCE = '.dev/BlueMap-5.12'
 npm test
 ```
 
-**Validation boundary:** the compiled Java/API tests and native-class web tests pass. A dedicated-server gameplay test with the full KNCraft pack has not been performed. Use the [server smoke-test checklist](docs/SERVER-TEST.md) when the side-server is ready.
+**Validation boundary:** the compiled Java/API tests and native-class web tests pass. The server owner has reported that version 1.0 works in their server. The phase-aware update still needs an in-game evolution check; automated tests do not run the full Wither Storm AI. Use the [server smoke-test checklist](docs/SERVER-TEST.md) for that check.
 
 ## Artwork and credits
 
-`src/main/resources/web/storm.png` is the unchanged `wither_storm_mod_logo.png` from the locally installed Wither Storm 4.2.1 JAR. It depicts the mod's black storm head, purple eye, and pale teeth, with the original purple background. The artwork belongs to the [Cracker's Wither Storm Mod team](https://www.curseforge.com/minecraft/mc-mods/crackers-wither-storm-mod); its rights are retained by its creators. BlueMap is by [Blue / Lukas Rieger and contributors](https://github.com/BlueMap-Minecraft/BlueMap).
+`src/main/resources/web/storm.png` is an AI-assisted transparent adaptation of `wither_storm_mod_logo.png` from the locally installed Wither Storm 4.2.1 JAR. `wither.png` is an AI-assisted Wither skull illustration based on the mod team's [official phase gallery](https://modrinth.com/mod/crackers-wither-storm-mod/gallery). Local image processing removes the early skull's generated checkerboard, restores its thin silhouette outline, and prepares both assets as 256×256 RGBA PNGs. These are map illustrations, not direct renders of every in-game model. Their arrangement follows the gallery's head designs; the phase number distinguishes body-only changes.
 
-A transparent-cutout experiment using the built-in image generator was discarded because it produced opaque checkerboard pixels. The shipped icon uses the original artwork, with no generated pixels.
+The original artwork and Wither Storm design belong to the [Cracker's Wither Storm Mod team](https://www.curseforge.com/minecraft/mc-mods/crackers-wither-storm-mod); their rights are retained by their creators. BlueMap is by [Blue / Lukas Rieger and contributors](https://github.com/BlueMap-Minecraft/BlueMap).
