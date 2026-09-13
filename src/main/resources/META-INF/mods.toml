@@ -1,0 +1,39 @@
+modLoader="javafml"
+loaderVersion="[47,)"
+license="All Rights Reserved"
+
+[[mods]]
+modId="witherstormbluemap"
+version="${version}"
+displayName="Wither Storm BlueMap"
+authors="KNCraft"
+displayTest="IGNORE_ALL_VERSION"
+description='''Live BlueMap markers for every loaded Wither Storm. Install on the server only.'''
+
+[[dependencies.witherstormbluemap]]
+modId="forge"
+mandatory=true
+versionRange="[47.4.0,48)"
+ordering="NONE"
+side="SERVER"
+
+[[dependencies.witherstormbluemap]]
+modId="minecraft"
+mandatory=true
+versionRange="[1.20.1,1.20.2)"
+ordering="NONE"
+side="SERVER"
+
+[[dependencies.witherstormbluemap]]
+modId="bluemap"
+mandatory=true
+versionRange="[5.3,6)"
+ordering="AFTER"
+side="SERVER"
+
+[[dependencies.witherstormbluemap]]
+modId="witherstormmod"
+mandatory=true
+versionRange="[4.2.1,5)"
+ordering="AFTER"
+side="SERVER"

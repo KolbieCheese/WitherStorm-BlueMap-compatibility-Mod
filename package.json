@@ -1,0 +1,12 @@
+{
+  "name": "witherstorm-bluemap-web-tests",
+  "private": true,
+  "scripts": { "test": "node --test tests/web.test.cjs" },
+  "devDependencies": {
+    "esbuild": "0.25.0",
+    "hocon-parser": "1.0.1",
+    "jsdom": "26.0.0",
+    "three": "0.147.0",
+    "vue": "3.2.45"
+  }
+}
