@@ -63,6 +63,9 @@ class BlueMapBridgeTest {
         assertEquals(0, maps.getAsJsonArray("nether").size());
         assertNotEquals(maps.getAsJsonArray("overworld").get(0).getAsJsonObject().get("uuid"),
                 maps.getAsJsonArray("overworld").get(1).getAsJsonObject().get("uuid"));
+        for (var entry : maps.getAsJsonArray("overworld")) {
+            assertEquals("Wither Storm", entry.getAsJsonObject().get("name").getAsString());
+        }
     }
 
     @Test void movementTransferAndRemovalReplaceOldPositions() throws Exception {
@@ -103,7 +106,7 @@ class BlueMapBridgeTest {
                 new StormSnapshot(second, world, "minecraft:overworld", name, 0, 64, 0, true, 6, true)), false);
         var entries = feed().getAsJsonObject("maps").getAsJsonArray("overworld");
         assertEquals(1, entries.size());
-        assertTrue(entries.get(0).getAsJsonObject().get("name").getAsString().startsWith(name + " (segment)"));
+        assertEquals(name, entries.get(0).getAsJsonObject().get("name").getAsString());
     }
 
     @Test void phasesAndHeadStatesUpdateIndependentlyForStormsAndSegments() throws Exception {

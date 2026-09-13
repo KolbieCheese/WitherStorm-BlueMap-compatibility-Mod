@@ -85,8 +85,7 @@ final class BlueMapBridge {
                     var markers = maps.get(map.getId());
                     if (markers != null) markers.add(Map.of(
                             "uuid", storm.id().toString(),
-                            "name", storm.name() + (storm.segment() ? " (segment)" : "")
-                                    + " [" + storm.id().toString().substring(0, 8) + "]",
+                            "name", storm.name(),
                             "position", Map.of("x", storm.x(), "y", storm.y(), "z", storm.z()),
                             "dimension", storm.dimension(),
                             "phase", storm.phase(),

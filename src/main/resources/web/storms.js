@@ -34,9 +34,7 @@
             side.hidden = single;
         }
         marker.stormPhase.textContent = phase < 0 ? "" : String(phase);
-        const phaseLabel = phase < 0 ? "" : `Phase ${phase}`;
-        marker.playerHeadElement.alt = phaseLabel ? `Wither Storm — ${phaseLabel}` : "Wither Storm";
-        return phaseLabel;
+        return phase < 0 ? "" : `Phase ${phase}`;
     }
 
     function apply(app, data) {
@@ -101,10 +99,12 @@
                 position: {x: storm.position.x, y: storm.position.y - 1.8, z: storm.position.z},
                 rotation: {yaw: 0, pitch: 0, roll: 0}
             });
-            marker.playerNameElement.textContent = storm.name;
-            marker.data.name = storm.name;
-            marker.data.label = phaseLabel ? `${storm.name} — ${phaseLabel}` : storm.name;
-            marker.element.title = `${marker.data.label}\n${storm.dimension}\nX ${storm.position.x.toFixed(1)}, Y ${storm.position.y.toFixed(1)}, Z ${storm.position.z.toFixed(1)}`;
+            const label = phaseLabel ? `${storm.name} [${phaseLabel}]` : storm.name;
+            marker.playerNameElement.textContent = label;
+            marker.playerHeadElement.alt = label;
+            marker.data.name = label;
+            marker.data.label = label;
+            marker.element.title = label;
         }
         for (const [id, marker] of set.markers) {
             if (!present.has(id)) set.remove(marker);

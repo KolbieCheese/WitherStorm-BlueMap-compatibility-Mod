@@ -2,7 +2,7 @@
 
 A **server-side Forge 1.20.1 mod** that shows every loaded Cracker's Wither Storm on BlueMap, including multiple storms at once. Each storm uses its full entity UUID for identity, so movement and server restarts do not mix up markers.
 
-The separate **Wither Storms** layer uses transparent head icons based on the mod's designs. Positions and phases are sampled every 20 server ticks and polled by the browser every second. Movement uses **BlueMap's own animated `PlayerMarker` class**, including its one-second easing animation. Storms remain a separate marker type and do not enter the real player list. Hover a storm to see its name, phase, dimension, and coordinates; select its entry in the layer to center the map on it.
+The separate **Wither Storms** layer uses transparent head icons based on the mod's designs. Positions and phases are sampled every 20 server ticks and polled by the browser every second. Movement uses **BlueMap's own animated `PlayerMarker` class**, including its one-second easing animation. Storms remain a separate marker type and do not enter the real player list. Hover a storm to see **Wither Storm [Phase X]**; select its entry in the layer to center the map on it. Custom entity names replace "Wither Storm" when set. Full UUIDs identify storms internally, but are not included in visible labels.
 
 Icons use a 40-pixel frame nearby and 20 pixels at medium/far distances, following the same distance thresholds as BlueMap's 32/16-pixel player heads. Both head images have real PNG transparency, with a thin white silhouette outline and no square background.
 

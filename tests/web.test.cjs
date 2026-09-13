@@ -201,8 +201,12 @@ test('phase evolution changes head artwork and labels without replacing animated
         marker = current;
         assert.ok(marker.playerHeadElement.src.endsWith((phase <= 1 ? 'wither.png' : 'storm.png') + '?v=1.0.0'));
         assert.equal(marker.stormPhase.textContent, String(phase));
-        assert.equal(marker.playerHeadElement.alt, `Wither Storm — Phase ${phase}`);
-        assert.match(marker.element.title, new RegExp(`Phase ${phase}`));
+        const label = `Wither Storm [Phase ${phase}]`;
+        assert.equal(marker.playerNameElement.textContent, label);
+        assert.equal(marker.playerHeadElement.alt, label);
+        assert.equal(marker.data.name, label);
+        assert.equal(marker.data.label, label);
+        assert.equal(marker.element.title, label);
         for (const side of marker.stormSideHeads) {
             assert.equal(side.hidden, phase === 6);
             assert.ok(side.src.endsWith((phase <= 3 ? 'wither.png' : 'storm.png') + '?v=1.0.0'));
